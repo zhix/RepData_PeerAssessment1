@@ -1,25 +1,271 @@
 ---
 title: "Reproducible Research: Peer Assessment 1"
+author: "Chong Zhi Xiong"
 output: 
   html_document:
     keep_md: true
 ---
 
+```{r echo =FALSE}
+
+setwd("C:/Users/User/Dropbox/Personal/Coursera/DataScience/5_ReproducibleResearch/RepData_PeerAssessment1")
+```
 
 ## Loading and preprocessing the data
+Data is loaded from `activity.csv` file. 
 
+```{r}
+datAct <- read.csv("activity.csv")
+```
+
+Now let's take a glimpse at the first few lines of the `datAct` dataset. 
+```{r echo =FALSE}
+head(datAct)
+```
 
 
 ## What is mean total number of steps taken per day?
+Daily total steps are tabulated using `tapply` method, as shown below:
+
+```{r}
+## consolidate a table of total steps by day 
+total_steps <- tapply(datAct$steps, datAct$date, sum, na.rm=TRUE)
+```
+
+Take a quick look at the `total_steps` dataset, after the dataset has been tidied. 
+
+```{r echo=FALSE}
+# tidying the dataset
+total_steps <- as.data.frame(as.matrix(total_steps))
+total_steps[,2] <- total_steps[,1]
+total_steps[,1] <- rownames(total_steps)
+rownames(total_steps) <- NULL
+colnames(total_steps) <- c("Date", "TotalSteps")
+
+head(total_steps)
+```
+
+
+Compared to barplot, histogram is more suitable in terms of analysing the `total_steps` dataset. As shown below, the barplot of daily total steps taken depicts the fluctuations of the steps, however does not inform of the mean, median, as well as mode of the dataset.
+
+```{r echo=FALSE}
+## using the data make a barplot according to days
+barplot(total_steps[,2], 
+        main = "Barplot of Total Steps Taken Daily", 
+        xlab = "Date", 
+        ylab = "Total Daily Steps",
+        names.arg = total_steps[,1])
+```
+
+Histogram below depicts the distribution of daily total steps according to frequency. Mean and median for the daily total steps taken are found.   
+  
+  
+Mean of the daily total steps taken is ```r round(mean(total_steps[,2]), 2)```.   
+  
+Median of the daily total steps taken is ```r median(total_steps[,2])```.   
+
+```{r echo=FALSE}
+## now make a historgram y(days) & x(ranges of total steps)
+hist(total_steps[,2], 
+     main = "Histogram of Daily Total Steps",
+     xlab = "Daily Total Steps", 
+     col = "blue")
+
+mean_steps <- mean(total_steps[,2])
+median_steps <- median(total_steps[,2])
+
+abline(v = mean_steps,
+       lty = 2)
+text(mean_steps-1200, 2, "mean >", col = "black")
+
+abline(v = median_steps , 
+       lty = 4)
+text(median_steps+1500, 2, "< median", col = "black")
+```
 
 
 
 ## What is the average daily activity pattern?
+The average number of steps across all days is tabulated using `tapply` method, as shown below:
+```{r}
+mean_steps <- tapply(datAct$steps, datAct$interval, mean, na.rm=TRUE)
+```
+
+The `mean_steps` dataset was then tidied up into the data frame format. Below is the frst 6 lines of the dataset `mean_steps`.  
+
+```{r echo = FALSE}
+## tidying the dataset
+mean_steps <- as.data.frame(as.matrix(mean_steps))
+mean_steps[,2] <- mean_steps[,1]
+mean_steps[,1] <- rownames(mean_steps)
+mean_steps[,1] <- as.numeric(mean_steps[,1])
+rownames(mean_steps) <- NULL
+colnames(mean_steps) <- c("Intervals", "AverageSteps")
+
+head(mean_steps)
+```
+
+A plot of average steps across all days against intervals is plotted. 
+```{r echo = FALSE}
+plot(mean_steps, 
+     main = "Plot of Average Steps Across All Days VS Interval Time",
+     xlab = "Interval Time (minutes)", 
+     ylab = "Average Steps Taken",
+     col = "blue", 
+     type = "l")
+```
+
+```{r echo = FALSE}
+max_step <- max(mean_steps$AverageSteps)
+max_step_interval <- mean_steps[mean_steps[,2] == max(mean_steps[,2]), ][1]
+```
+  
+The maximum average steps across all days is ```r max_step``` which happens at the interval ```r max_step_interval```th minute, also close to the ```r round(max_step_interval/60, 0)``` th hour across all days. 
 
 
 
 ## Imputing missing values
+It has been noted that there are significant number of missing values coded as ```r NA```. Such presence of missing data may introduce bias into some calculations or summaries of data.  
 
+In the section, we will investigate on the missing values and their significance to the data. 
+
+1) The total amount of missing values ```r NA``` can be found through code shown below:
+```{r eval=FALSE}
+sum(is.na(datAct))
+```
+There is a total of ```r sum(is.na(datAct))``` `NA`s found in the `datAct` dataset. 
+
+2) A strategy has been devised for filling in all of the missing values in the `datAct` dataset. This is done by using mean daily steps to replace all the `NA`s found. 
+
+The code below is done to extract and form a dataset for mean daily steps. 
+
+```{r}
+mean_dailysteps <- tapply(datAct[,1], datAct[,2], mean, na.rm=TRUE)
+
+## tidying the dataset
+mean_dailysteps <- as.data.frame(as.matrix(mean_dailysteps))
+mean_dailysteps[,2] <- mean_dailysteps[,1]
+mean_dailysteps[,1] <- rownames(mean_dailysteps)
+mean_dailysteps[,1] <- as.Date(mean_dailysteps[,1])
+rownames(mean_dailysteps) <- NULL
+colnames(mean_dailysteps) <- c("Date", "MeanDailySteps")
+
+## change all "NaN" to 0
+mean_dailysteps[mean_dailysteps$MeanDailySteps == "NaN", ][,2] <- as.numeric(0)
+
+```
+
+Let's take a look at the `mean_dailysteps` dataset. 
+```{r echo = FALSE}
+head(mean_dailysteps)
+```
+
+This `mean_dailysteps` dataset is used to mapped back into the `datAct` dataset, in order to replace all the `NA` values for steps with mean steps. Below is the new `datAct` dataset with all its `NA` values replaced. This dataset table can be compared to the first `datAct` dataset table above to notice the difference. 
+
+```{r echo = FALSE}
+## create another list to match NA with mean of daily steps
+datAct_rmNA <- datAct
+datAct_rmNA$date <- as.Date(datAct$date)
+datAct_rmNA[,4] <- match(datAct_rmNA$date, mean_dailysteps$Date)
+datAct_rmNA[,5] <- mean_dailysteps[datAct_rmNA$V4,2]
+datAct_rmNA[,6] <- is.na(datAct_rmNA$steps)
+
+for (i in 1:nrow(datAct_rmNA))
+  if (datAct_rmNA[i,6] == TRUE) 
+    datAct_rmNA[i,1] <- datAct_rmNA[1,5]
+
+datAct_rmNA <- datAct_rmNA[,1:3]
+head(datAct_rmNA)
+```
+
+
+3) A histogram of the total number of steps taken each day is plotted with the latest `datAct` dataset. Similar to the method carried out above, the histogram is updated as follows. 
+  
+```{r echo=FALSE}
+## consolidate a table of total steps by day 
+total_steps <- tapply(datAct_rmNA$steps, datAct_rmNA$date, sum, na.rm=TRUE)
+
+# tidying the dataset
+total_steps <- as.data.frame(as.matrix(total_steps))
+total_steps[,2] <- total_steps[,1]
+total_steps[,1] <- rownames(total_steps)
+rownames(total_steps) <- NULL
+colnames(total_steps) <- c("Date", "TotalSteps")
+
+## now make a historgram y(days) & x(ranges of total steps)
+hist(total_steps[,2], 
+     main = "Histogram of Daily Total Steps",
+     xlab = "Daily Total Steps", 
+     col = "blue")
+
+mean_steps <- mean(total_steps[,2])
+median_steps <- median(total_steps[,2])
+
+abline(v = mean_steps,
+       lty = 2)
+text(mean_steps-1200, 2, "mean >", col = "black")
+
+abline(v = median_steps , 
+       lty = 4)
+text(median_steps+1700, 2, "< median", col = "black")
+```
+
+Mean of the daily total steps taken is ```r round(mean(total_steps[,2]), 2)```.
+         
+Median of the daily total steps taken is ```r median(total_steps[,2])```.  
+
+As shown above, there is no difference between both the results. Therefore, changing the NA or not does not change its dataset analysis, at least in terms of histogram, mean and median. 
 
 
 ## Are there differences in activity patterns between weekdays and weekends?
+To find out if there is any difference in activity patterns between the weekdays and weekends, `date`s in the `datAct` dataset are converted into weekdays using the `weekdays()` function. 
+
+The plot below is the result from the simulated data. 
+```{r echo=FALSE}
+## use the available datAct_rmNA dataset from above and convert Dates into Weekdays
+datAct_rmNA$weekdays <- weekdays(datAct_rmNA$date)
+
+## identify if day is "weekday" or "weekend"
+for (i in 1:nrow(datAct_rmNA))
+  ifelse(datAct_rmNA[i,4] %in% c("Saturday", "Sunday"), 
+         datAct_rmNA[i,5] <- "Weekend",
+         datAct_rmNA[i,5] <- "Weekday")
+
+colnames(datAct_rmNA)[5] <- "day"
+
+library(datasets)
+library(lattice)
+
+## convert to mean steps according to "weekend" and "weekday"
+datAct_rmNAWeekend <- datAct_rmNA[datAct_rmNA$day == "Weekend",]
+datAct_rmNAWeekday <- datAct_rmNA[datAct_rmNA$day == "Weekday",]
+
+mean_stepsWeekend <- tapply(datAct_rmNAWeekend[,1], datAct_rmNAWeekend[,3], mean, na.rm=TRUE)
+mean_stepsWeekday <- tapply(datAct_rmNAWeekday[,1], datAct_rmNAWeekday[,3], mean, na.rm=TRUE)
+
+## tidying the dataset
+mean_stepsWeekend <- as.data.frame(as.matrix(mean_stepsWeekend))
+mean_stepsWeekend[,2] <- mean_stepsWeekend[,1]
+mean_stepsWeekend[,1] <- rownames(mean_stepsWeekend)
+mean_stepsWeekend[,1] <- as.numeric(mean_stepsWeekend[,1])
+rownames(mean_stepsWeekend) <- NULL
+colnames(mean_stepsWeekend) <- c("Intervals", "AverageSteps")
+mean_stepsWeekend$Day <- "Weekend"
+
+mean_stepsWeekday <- as.data.frame(as.matrix(mean_stepsWeekday))
+mean_stepsWeekday[,2] <- mean_stepsWeekday[,1]
+mean_stepsWeekday[,1] <- rownames(mean_stepsWeekday)
+mean_stepsWeekday[,1] <- as.numeric(mean_stepsWeekday[,1])
+rownames(mean_stepsWeekday) <- NULL
+colnames(mean_stepsWeekday) <- c("Intervals", "AverageSteps")
+mean_stepsWeekday$Day <- "Weekday"
+
+mean_steps <- rbind(mean_stepsWeekday, mean_stepsWeekend)
+mean_steps <- transform(mean_steps, Day = factor(Day))
+xyplot(mean_steps$AverageSteps ~ mean_steps$Intervals | mean_steps$Day, 
+       layout = c(1,2), 
+       type = "l",
+       ylab = "Mean Number of Steps",
+       xlab = "Interval")
+```
+
